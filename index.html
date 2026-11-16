@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f3b4c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ride Prep">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Ride Prep Agent – Ontmoetingsplek Team</title>
+<style>
+:root{
+  --bg:#f4efe6; --card:#ffffff; --ink:#14232b; --muted:#5d6b72; --line:#e3dccf;
+  --sea:#0f3b4c; --sea2:#1d6a80; --sand:#d9b26f; --good:#2f7d4f; --ok:#b7861f; --bad:#b4442f;
+  --radius:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0e171b;--card:#162329;--ink:#eef2f3;--muted:#9aaab1;--line:#26363d;--sea:#5fb3c9;--sea2:#8fd0e0;--sand:#e0bd7c}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--sea);color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 16px 10px}
+@media (prefers-color-scheme: dark){header{background:#0b2a35}}
+header h1{margin:0;font-size:18px;letter-spacing:.2px}
+header .sub{font-size:12px;opacity:.8}
+.controls{display:flex;gap:8px;margin-top:10px}
+.controls select{flex:1;min-width:0}
+select,input{font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);width:100%}
+header select{border:0}
+main{padding:12px 12px calc(84px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.card h2{margin:0 0 8px;font-size:16px}
+.muted{color:var(--muted);font-size:13px}
+.row{display:flex;gap:10px;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{background:var(--bg);border-radius:12px;padding:10px;text-align:center}
+.kpi b{display:block;font-size:20px}
+.kpi span{font-size:12px;color:var(--muted)}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#fff}
+.pill.good{background:var(--good)}.pill.ok{background:var(--ok)}.pill.bad{background:var(--bad)}
+.days{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.day{flex:0 0 auto;min-width:86px;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px;text-align:center;cursor:pointer}
+.day.sel{outline:2px solid var(--sea2)}
+.day .d{font-size:12px;color:var(--muted)}
+.day .t{font-weight:700}
+.tide{font-variant-numeric:tabular-nums}
+.hours{display:flex;gap:4px;overflow-x:auto;padding:4px 0}
+.hr{flex:0 0 44px;text-align:center;font-size:11px;border-radius:8px;padding:4px 2px;background:var(--bg)}
+.hr.win{background:rgba(217,178,111,.35);outline:1px solid var(--sand)}
+.arrow{display:inline-block;font-size:14px}
+button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:11px 14px;background:var(--sea);color:#fff;cursor:pointer}
+@media (prefers-color-scheme: dark){button{color:#0e171b}}
+button.ghost{background:transparent;color:var(--sea);border:1px solid var(--line)}
+button.small{padding:7px 10px;font-size:13px}
+a.btn{display:block;text-align:center;text-decoration:none;font-weight:600;border-radius:12px;padding:11px;border:1px solid var(--line);color:var(--ink);background:var(--card)}
+.links{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;color:var(--muted);border-radius:0;padding:10px 0 8px;font-size:12px;font-weight:600}
+nav button .i{display:block;font-size:20px}
+nav button.on{color:var(--sea)}
+.tab{display:none}.tab.on{display:block}
+.banner{border-left:4px solid var(--ok);background:rgba(183,134,31,.12);padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
+.banner.err{border-color:var(--bad);background:rgba(180,68,47,.1)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:7px 4px;border-bottom:1px solid var(--line)}
+th{font-size:12px;color:var(--muted);font-weight:600}
+td.num{font-variant-numeric:tabular-nums;font-weight:700}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+textarea{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:8px}
+.warn{color:var(--bad);font-size:13px;margin-top:6px}
+.briefing{white-space:pre-wrap;font-size:14px}
+.chk{display:flex;gap:8px;align-items:center;margin-top:10px}
+.chk input{width:auto}
+details summary{cursor:pointer;font-weight:600}
+.dialog{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;z-index:10}
+.dialog.on{display:flex}
+.sheet{background:var(--card);width:100%;max-width:720px;margin:0 auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>🚲 Ride Prep Agent</h1>
+  <div class="sub">Ontmoetingsplek team · road · gravel · beach</div>
+  <div class="controls">
+    <select id="loc" aria-label="Start location"></select>
+    <select id="ride" aria-label="Ride type" style="max-width:120px">
+      <option value="beach">Beach</option><option value="gravel">Gravel</option><option value="road">Road</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <div id="status"></div>
+
+  <!-- TODAY / FORECAST -->
+  <section class="tab on" id="t-plan">
+    <div class="card">
+      <div class="days" id="days"></div>
+    </div>
+    <div class="card" id="dayCard"><div class="muted">Loading forecast…</div></div>
+    <div class="card" id="briefCard" style="display:none">
+      <h2>🧭 Agent briefing</h2>
+      <div class="briefing" id="brief"></div>
+      <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+        <button class="small" id="copyBrief">Copy</button>
+        <a class="btn small" id="waBrief" target="_blank" rel="noopener" style="padding:7px 10px;font-size:13px">Share via WhatsApp</a>
+        <button class="small ghost" id="aiBrief" style="display:none">✨ Write with Claude</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TYRES -->
+  <section class="tab" id="t-tyres">
+    <div class="card">
+      <h2>🛞 Team tyre pressures</h2>
+      <div class="muted" id="tyreCtx"></div>
+      <label for="surface">Surface</label>
+      <select id="surface"></select>
+      <div id="teamTable" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>How this is calculated</h2>
+      <div class="muted">
+        Inputs mirror the SILCA Pro calculator (system weight, surface, measured width, wheel size, casing, speed, weight distribution).
+        Base pressure uses the published 15 % tyre-drop regression (Berto), then surface, casing, speed and wheel-size factors calibrated to SILCA-style outputs.
+        <b>Beach surfaces are not in SILCA</b> — those values are a low-pressure starting point; test on the sand.
+        Always respect rim/tyre maximums; hookless rims are capped at 72 psi (5.0 bar).
+        <br><br>Verify a rider’s numbers with the official <a href="https://silca.cc/en-eu/pages/pro-tire-pressure-calculator" target="_blank" rel="noopener">SILCA Pro Tire Pressure Calculator</a>.
+      </div>
+    </div>
+  </section>
+
+  <!-- ROUTES -->
+  <section class="tab" id="t-routes">
+    <div class="card" id="routeAdvice"><div class="muted">Select a day on the Plan tab.</div></div>
+    <div class="card">
+      <h2>🗺️ Plan in your app</h2>
+      <div class="links">
+        <a class="btn" id="lnKomoot" target="_blank" rel="noopener">Komoot</a>
+        <a class="btn" id="lnStrava" target="_blank" rel="noopener">Strava</a>
+        <a class="btn" id="lnGarmin" target="_blank" rel="noopener">Garmin</a>
+      </div>
+      <div class="muted" style="margin-top:8px">Opens each planner at the start point. Import the draft GPX below to start from the wind-optimised direction.</div>
+    </div>
+    <div class="card">
+      <h2>📄 Draft GPX (out &amp; back)</h2>
+      <div class="grid2">
+        <div><label for="gpxKm">One-way distance (km)</label><input id="gpxKm" type="number" min="5" max="120" value="25"></div>
+        <div><label>&nbsp;</label><button id="mkGpx" style="width:100%">Generate</button></div>
+      </div>
+      <textarea id="gpxOut" readonly placeholder="GPX appears here" style="margin-top:10px"></textarea>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="small" id="copyGpx">Copy GPX</button>
+        <button class="small ghost" id="dlGpx">Download .gpx</button>
+      </div>
+      <div class="muted" style="margin-top:6px">Straight-line draft along the coast/heading — snap it to real paths in Komoot (Import → GPX), Strava (Upload route) or Garmin Connect (Import course).</div>
+    </div>
+  </section>
+
+  <!-- RIDERS -->
+  <section class="tab" id="t-riders">
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">👥 Riders</h2><button class="small" id="addRider">+ Add rider</button></div>
+      <div id="riderList" style="margin-top:10px"></div>
+      <div class="muted" style="margin-top:8px">Profiles are stored on this device only. Use export/import to share the team list.</div>
+    </div>
+    <div class="card">
+      <details><summary>Export / import team</summary>
+        <textarea id="teamJson" style="margin-top:8px"></textarea>
+        <div class="row" style="gap:8px;margin-top:8px">
+          <button class="small" id="expTeam">Export</button><button class="small ghost" id="impTeam">Import</button>
+        </div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-tab="t-plan"><span class="i">☀️</span>Plan</button>
+  <button data-tab="t-tyres"><span class="i">🛞</span>Tyres</button>
+  <button data-tab="t-routes"><span class="i">🗺️</span>Routes</button>
+  <button data-tab="t-riders"><span class="i">👥</span>Riders</button>
+</nav>
+
+<div class="dialog" id="dlg"><div class="sheet" id="sheet"></div></div>
+
+<script>
+/* ================= CONFIG ================= */
+// Beach locations follow primastrandje.cc coverage. coast = bearing (deg) of the beach heading "up-coast".
+const LOCATIONS = [
+  {id:"texel",n:"Texel (Paal 17)",c:"NL",lat:53.083,lon:4.735,coast:15},
+  {id:"denhelder",n:"Den Helder – Duinoord",c:"NL",lat:52.93,lon:4.72,coast:20},
+  {id:"petten",n:"Petten",c:"NL",lat:52.77,lon:4.655,coast:15},
+  {id:"egmond",n:"Egmond aan Zee",c:"NL",lat:52.62,lon:4.625,coast:12},
+  {id:"wijkaanzee",n:"Wijk aan Zee",c:"NL",lat:52.495,lon:4.585,coast:12},
+  {id:"zandvoort",n:"Zandvoort",c:"NL",lat:52.375,lon:4.525,coast:28},
+  {id:"noordwijk",n:"Noordwijk aan Zee",c:"NL",lat:52.245,lon:4.425,coast:35},
+  {id:"katwijk",n:"Katwijk aan Zee",c:"NL",lat:52.205,lon:4.395,coast:38},
+  {id:"scheveningen",n:"Scheveningen",c:"NL",lat:52.11,lon:4.27,coast:40},
+  {id:"rockanje",n:"Rockanje",c:"NL",lat:51.875,lon:4.045,coast:50},
+  {id:"ouddorp",n:"Ouddorp",c:"NL",lat:51.82,lon:3.89,coast:60},
+  {id:"renesse",n:"Renesse",c:"NL",lat:51.73,lon:3.76,coast:70},
+  {id:"knokke",n:"Knokke-Heist",c:"BE",lat:51.35,lon:3.27,coast:60},
+  {id:"zeebrugge",n:"Zeebrugge",c:"BE",lat:51.335,lon:3.19,coast:60},
+  {id:"dehaan",n:"De Haan",c:"BE",lat:51.275,lon:3.03,coast:55},
+  {id:"bredene",n:"Bredene",c:"BE",lat:51.245,lon:2.965,coast:55},
+  {id:"oostende",n:"Middelkerke – Oostende – Westende",c:"BE",lat:51.19,lon:2.82,coast:55},
+  {id:"depanne",n:"De Panne – Koksijde",c:"BE",lat:51.10,lon:2.59,coast:55}
+];
+
+const SURFACES = [
+  ["track_wood","Track (indoor wood)",1.08],
+  ["track_conc","Track (outdoor concrete)",1.02],
+  ["new","New pavement",0.95],
+  ["worn","Worn pavement / some cracks",0.90],
+  ["poor","Poor pavement / chipseal",0.84],
+  ["cobble","Cobblestone",0.74],
+  ["g1","Gravel cat. 1 (smooth, hard-packed)",0.82],
+  ["g2","Gravel cat. 2 (loose patches)",0.76],
+  ["g3","Gravel cat. 3 (rough, chunky)",0.70],
+  ["g4","Gravel cat. 4 (very rough / MTB-like)",0.64],
+  ["sand_hard","Beach – wet, hard-packed (low tide) *",0.58],
+  ["sand_soft","Beach – softer sand *",0.46]
+];
+const DEFAULT_SURFACE = {beach:"sand_hard",gravel:"g2",road:"worn"};
+const CASINGS = [["race","SILCA-style race casing",1.02],["hp","High-performance, tubeless/latex",1.00],["mid_tl","Mid-range, tubeless/latex",0.97],["mid_butyl","Mid-range, butyl tube",0.99],["pr","Puncture-resistant, tubeless/latex",0.94]];
+const WHEELS = [["700","700C / 29\"",1.00],["650c","650C",1.02],["650b","650B / 27.5\"",1.03],["26","26\"",1.05]];
+const SPEEDS = [["rec","Recreational",0.96],["mod","Moderate group ride",1.00],["fast","Fast group ride",1.02],["race","Racing",1.04]];
+const BIKES = [["road","Road (48/52)",0.48],["gravel","Gravel (47/53)",0.47],["mtb","MTB / fatbike (46.5/53.5)",0.465],["tt","TT / track (50/50)",0.50]];
+
+/* ================= STORAGE (safe) ================= */
+const store = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+let S = Object.assign({loc:"egmond",ride:"beach",surface:null,dayIdx:0}, store.get("rpa.settings",{}));
+let riders = store.get("rpa.riders",[
+  {id:1,name:"Example rider",kg:78,bikeKg:10,gearKg:2,bike:"gravel",width:42,wheel:"700",casing:"mid_tl",speed:"mod",hookless:false,maxPsi:""}
+]);
+const save = ()=>{store.set("rpa.settings",S);store.set("rpa.riders",riders)};
+
+/* ================= HELPERS ================= */
+const $ = id=>document.getElementById(id);
+const DIRS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+const dirName = d=>DIRS[Math.round(((d%360)+360)%360/22.5)%16];
+const fmtT = d=>d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+const fmtDay = d=>d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+const loc = ()=>LOCATIONS.find(l=>l.id===S.loc)||LOCATIONS[3];
+const psi2bar = p=>p*0.0689476;
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const WMO = c=>c===0?"☀️":c<=2?"🌤️":c===3?"☁️":c<=48?"🌫️":c<=57?"🌦️":c<=67?"🌧️":c<=77?"🌨️":c<=82?"🌧️":c<=86?"🌨️":"⛈️";
+
+/* ================= DATA ================= */
+let DATA = null; // {hours:[{t,temp,app,rain,pp,wind,gust,dir,code}], days:[{date,sunrise,sunset,tmax,tmin,rain}], tides:[{t,h,type}], live:true}
+
+async function load(){
+  const L = loc();
+  $("status").innerHTML = "";
+  $("dayCard").innerHTML = '<div class="muted">Loading forecast for '+esc(L.n)+'…</div>';
+  const wUrl = `https://api.open-meteo.com/v1/forecast?latitude=${L.lat}&longitude=${L.lon}&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FAmsterdam&forecast_days=7&wind_speed_unit=kmh`;
+  const mUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${L.lat}&longitude=${L.lon-0.03}&hourly=sea_level_height_msl&timezone=Europe%2FAmsterdam&forecast_days=7&cell_selection=sea`;
+  try{
+    const ctl = new AbortController(); const to=setTimeout(()=>ctl.abort(),9000);
+    const [w,m] = await Promise.all([fetch(wUrl,{signal:ctl.signal}).then(r=>r.json()), fetch(mUrl,{signal:ctl.signal}).then(r=>r.json()).catch(()=>null)]);
+    clearTimeout(to);
+    DATA = parse(w,m);
+    if(!DATA.tides.length && S.ride==="beach") banner("Tide model unavailable for this point — check low tide on primastrandje.cc.","");
+  }catch(e){
+    DATA = null;
+    banner(`Live data can’t load here (this preview blocks outside connections). Install the app from its hosted address for live weather &amp; tides. Meanwhile: <a href="https://primastrandje.cc" target="_blank" rel="noopener">primastrandje.cc</a> (tides) · <a href="https://www.knmi.nl/nederland-nu/weer/verwachtingen" target="_blank" rel="noopener">KNMI</a> · <a href="https://waterinfo.rws.nl" target="_blank" rel="noopener">Rijkswaterstaat Waterinfo</a>.`,"err");
+  }
+  render();
+}
+
+function parse(w,m){
+  const H=w.hourly, hours=H.time.map((t,i)=>({t:new Date(t),temp:H.temperature_2m[i],app:H.apparent_temperature[i],rain:H.precipitation[i],pp:H.precipitation_probability?.[i]??null,wind:H.wind_speed_10m[i],gust:H.wind_gusts_10m[i],dir:H.wind_direction_10m[i],code:H.weather_code[i]}));
+  const D=w.daily, days=D.time.map((t,i)=>({date:new Date(t+"T12:00"),key:t,sunrise:new Date(D.sunrise[i]),sunset:new Date(D.sunset[i]),tmax:D.temperature_2m_max[i],tmin:D.temperature_2m_min[i],rain:D.precipitation_sum[i]}));
+  const tides=[];
+  if(m && m.hourly && m.hourly.sea_level_height_msl){
+    const t=m.hourly.time.map(x=>new Date(x)), h=m.hourly.sea_level_height_msl;
+    for(let i=1;i<h.length-1;i++){
+      if(h[i]==null||h[i-1]==null||h[i+1]==null) continue;
+      const low = h[i]<h[i-1] && h[i]<=h[i+1], high = h[i]>h[i-1] && h[i]>=h[i+1];
+      if(!low && !high) continue;
+      const den = h[i-1]-2*h[i]+h[i+1]; const off = den? 0.5*(h[i-1]-h[i+1])/den : 0; // parabolic refinement (hours)
+      const hv = h[i] - 0.25*(h[i-1]-h[i+1])*off;
+      tides.push({t:new Date(t[i].getTime()+off*3600e3),h:hv,type:low?"low":"high"});
+    }
+  }
+  return {hours,days,tides,live:true};
+}
+
+/* ================= AGENT LOGIC ================= */
+function hourScore(h){
+  let s=100;
+  if(h.wind>20) s-= (h.wind-20)*2.2;
+  if(h.gust>45) s-= (h.gust-45)*1.5;
+  if(h.rain>0.1) s-= Math.min(45,h.rain*30);
+  if(h.pp!=null && h.pp>50) s-= (h.pp-50)*0.4;
+  if(h.temp<3) s-=15; if(h.temp<0) s-=20;
+  if(h.code>=95) s-=60;
+  return Math.max(0,Math.min(100,s));
+}
+const rate = s=> s>=70?["good","Good"]: s>=45?["ok","Fair"]:["bad","Poor"];
+
+function windowsFor(dayIdx){
+  const d=DATA.days[dayIdx]; if(!d) return [];
+  const daylight=[d.sunrise.getTime()+20*60e3, d.sunset.getTime()-20*60e3];
+  let cands=[];
+  if(S.ride==="beach"){
+    DATA.tides.filter(t=>t.type==="low").forEach(t=>{
+      const a=Math.max(t.t.getTime()-2*3600e3,daylight[0]), b=Math.min(t.t.getTime()+2*3600e3,daylight[1]);
+      if(b-a>=60*60e3) cands.push({a:new Date(a),b:new Date(b),low:t});
+    });
+  }else{
+    // best 3-hour daylight block
+    const hs=DATA.hours.filter(h=>h.t>=d.sunrise && h.t<=d.sunset);
+    for(let i=0;i+3<=hs.length;i++) cands.push({a:hs[i].t,b:new Date(hs[i].t.getTime()+3*3600e3)});
+  }
+  cands.forEach(c=>{
+    const hs=DATA.hours.filter(h=>h.t>=new Date(c.a.getTime()-30*60e3)&&h.t<c.b);
+    c.hours=hs; c.score=hs.length?Math.round(hs.reduce((s,h)=>s+hourScore(h),0)/hs.length):0;
+    c.wind=hs.length?Math.max(...hs.map(h=>h.wind)):0; c.gust=hs.length?Math.max(...hs.map(h=>h.gust)):0;
+    c.rain=hs.reduce((s,h)=>s+h.rain,0); c.dir=hs.length?circMean(hs.map(h=>h.dir)):0;
+    c.temp=hs.length?Math.round(hs.reduce((s,h)=>s+h.temp,0)/hs.length):null;
+    c.app=hs.length?Math.round(Math.min(...hs.map(h=>h.app))):null;
+  });
+  cands.sort((x,y)=>y.score-x.score);
+  return S.ride==="beach"?cands:cands.slice(0,1);
+}
+function circMean(a){let x=0,y=0;a.forEach(d=>{x+=Math.cos(d*Math.PI/180);y+=Math.sin(d*Math.PI/180)});return (Math.atan2(y,x)*180/Math.PI+360)%360}
+
+function headingAdvice(windFrom){
+  const L=loc();
+  if(S.ride==="beach"){
+    const up=L.coast, down=(L.coast+180)%360;
+    const into = Math.cos((windFrom-up)*Math.PI/180)>=0 ? up : down;
+    const cross = Math.abs(Math.sin((windFrom-up)*Math.PI/180))>0.8;
+    return {heading:into, text: cross? `Wind is mostly cross-shore (${dirName(windFrom)}). Either direction works; expect drift — keep a tight echelon.`
+      : `Start ${dirName(into)} along the beach (into the ${dirName(windFrom)} wind) and come home with a tailwind.`};
+  }
+  return {heading:windFrom, text:`Head out ${dirName(windFrom)} into the wind first, return with the wind at your back.`};
+}
+
+function clothing(app,rain,wind){
+  if(app==null) return "";
+  let k = app<=0?"Winter kit: thermal tights, winter jacket, overshoes, lobster/winter gloves, cap under helmet.":
+          app<=6?"Thermal tights, long-sleeve base + softshell, full gloves, overshoes.":
+          app<=11?"Knee/leg warmers, long-sleeve jersey + gilet, light full gloves.":
+          app<=16?"Shorts + arm warmers, gilet in pocket.":"Summer kit, sunscreen, extra bottle.";
+  if(rain>0.5) k+=" Rain jacket"+(S.ride==="beach"?" — and rinse drivetrain after (salt + sand).":".");
+  else if(S.ride==="beach") k+=" Rinse bikes after the ride (salt spray & sand).";
+  if(wind>35) k+=" Strong wind: stay on the hard sand near the waterline, rotate turns short.";
+  return k;
+}
+
+/* ================= TYRE MODEL ================= */
+function tyre(r, surfaceKey){
+  const sys = (+r.kg||0)+(+r.bikeKg||0)+(+r.gearKg||0);
+  const front = (BIKES.find(b=>b[0]===r.bike)||BIKES[0])[2];
+  const sf=(SURFACES.find(s=>s[0]===surfaceKey)||SURFACES[3])[2];
+  const cf=(CASINGS.find(c=>c[0]===r.casing)||CASINGS[1])[2];
+  const wf=(WHEELS.find(w=>w[0]===r.wheel)||WHEELS[0])[2];
+  const vf=(SPEEDS.find(v=>v[0]===r.speed)||SPEEDS[1])[2];
+  const W=Math.max(20,+r.width||28);
+  const base = kg=>{const lb=kg*2.20462; return 153.6*lb/Math.pow(W,1.5785)-7.1685;}; // 15% tyre drop (Berto)
+  let f=base(sys*front)*sf*cf*wf*vf, b=base(sys*(1-front))*sf*cf*wf*vf;
+  const warn=[];
+  const floor = r.casing==="mid_butyl"?20:14;
+  if(f<floor||b<floor){warn.push(`Raised to ${floor} psi floor (rim strike/burp risk).`);f=Math.max(f,floor);b=Math.max(b,floor);}
+  let cap = r.hookless?72:Infinity; if(+r.maxPsi) cap=Math.min(cap,+r.maxPsi);
+  if(f>cap||b>cap){warn.push(`Capped at ${cap} psi (${r.hookless?"hookless rim limit":"tyre/rim max"}).`);f=Math.min(f,cap);b=Math.min(b,cap);}
+  if(r.casing==="mid_butyl" && surfaceKey.startsWith("sand")) warn.push("Tubes at low pressure on sand → pinch-flat risk; tubeless preferred.");
+  return {sys,f,b,warn};
+}
+
+/* ================= RENDER ================= */
+function banner(html,cls){$("status").innerHTML=`<div class="banner ${cls}">${html}</div>`}
+
+function render(){
+  renderDays(); renderDay(); renderTyres(); renderRoutes(); renderRiders();
+}
+
+function renderDays(){
+  const el=$("days");
+  if(!DATA){el.innerHTML='<div class="muted">No forecast loaded.</div>';return}
+  el.innerHTML=DATA.days.map((d,i)=>{
+    const w=windowsFor(i)[0]; const [cls,lab]=w?rate(w.score):["bad","—"];
+    const lows=DATA.tides.filter(t=>t.type==="low"&&t.t.toDateString()===d.date.toDateString()).map(t=>fmtT(t.t)).join(" · ");
+    return `<div class="day ${i===S.dayIdx?"sel":""}" data-i="${i}"><div class="d">${i===0?"Today":fmtDay(d.date)}</div>
+      <div class="t">${Math.round(d.tmax)}°</div><span class="pill ${cls}">${w?lab:(S.ride==="beach"?"No window":"—")}</span>
+      ${S.ride==="beach"?`<div class="d tide">🌊 ${lows||"–"}</div>`:""}</div>`}).join("");
+  el.querySelectorAll(".day").forEach(n=>n.onclick=()=>{S.dayIdx=+n.dataset.i;save();render()});
+}
+
+function renderDay(){
+  const card=$("dayCard"), L=loc();
+  if(!DATA){card.innerHTML=`<h2>${esc(L.n)}</h2><div class="muted">Forecast unavailable in this view. Tyre pressures, rider profiles and route planning still work.</div>`;$("briefCard").style.display="none";return}
+  const d=DATA.days[S.dayIdx]; const ws=windowsFor(S.dayIdx); const best=ws[0];
+  const lowT=DATA.tides.filter(t=>t.t.toDateString()===d.date.toDateString());
+  let html=`<div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(L.n)} · ${S.dayIdx===0?"Today":fmtDay(d.date)}</h2>${best?`<span class="pill ${rate(best.score)[0]}">${rate(best.score)[1]} ${best.score}</span>`:""}</div>
+  <div class="muted">🌅 ${fmtT(d.sunrise)} – ${fmtT(d.sunset)} · ${Math.round(d.tmin)}–${Math.round(d.tmax)}°C · ${d.rain.toFixed(1)} mm</div>`;
+  if(S.ride==="beach") html+=`<div class="tide" style="margin-top:8px">${lowT.map(t=>`${t.type==="low"?"⬇️ Low":"⬆️ High"} ${fmtT(t.t)} <span class="muted">(${t.h.toFixed(2)} m)</span>`).join("<br>")||'<span class="muted">No tide data</span>'}</div>`;
+  if(best){
+    const adv=headingAdvice(best.dir);
+    html+=`<div class="grid3" style="margin-top:12px">
+      <div class="kpi"><b>${fmtT(best.a)}</b><span>to ${fmtT(best.b)}</span></div>
+      <div class="kpi"><b>${Math.round(best.wind)}<small style="font-size:12px"> km/h</small></b><span><span class="arrow" style="transform:rotate(${best.dir+180}deg)">↑</span> ${dirName(best.dir)} · gust ${Math.round(best.gust)}</span></div>
+      <div class="kpi"><b>${best.temp}°</b><span>feels ${best.app}° · ${best.rain.toFixed(1)} mm</span></div></div>
+      <div style="margin-top:10px">🧭 ${adv.text}</div>
+      <div class="muted" style="margin-top:6px">👕 ${clothing(best.app,best.rain,best.wind)}</div>`;
+    const hrs=DATA.hours.filter(h=>h.t.toDateString()===d.date.toDateString()&&h.t>=new Date(d.sunrise.getTime()-3600e3)&&h.t<=d.sunset);
+    html+=`<div class="hours" style="margin-top:10px">${hrs.map(h=>`<div class="hr ${h.t>=new Date(best.a.getTime()-30*60e3)&&h.t<best.b?"win":""}">${h.t.getHours()}h<br>${WMO(h.code)}<br>${Math.round(h.temp)}°<br>${Math.round(h.wind)}<br><span class="arrow" style="transform:rotate(${h.dir+180}deg)">↑</span></div>`).join("")}</div>
+      <div class="muted">Shaded = recommended window. Wind in km/h; arrow shows where the wind blows to.</div>`;
+    if(S.ride==="beach" && ws.length>1) html+=`<div class="muted" style="margin-top:6px">Other low-tide window: ${fmtT(ws[1].a)}–${fmtT(ws[1].b)} (${rate(ws[1].score)[1]})</div>`;
+  }else{
+    html+=`<div style="margin-top:10px">${S.ride==="beach"?"No low tide within daylight this day — consider a road or gravel ride instead.":"No suitable daylight window."}</div>`;
+  }
+  html+=`<div class="muted" style="margin-top:10px">Data: Open-Meteo weather &amp; marine model. Tide times are model-derived (±15–30 min) — confirm on <a href="https://primastrandje.cc" target="_blank" rel="noopener">primastrandje.cc</a>.</div>`;
+  card.innerHTML=html;
+  // briefing
+  $("briefCard").style.display="block";
+  $("brief").textContent=buildBrief(d,best,lowT);
+  $("waBrief").href="https://wa.me/?text="+encodeURIComponent($("brief").textContent);
+}
+
+function buildBrief(d,best,lowT){
+  const L=loc(); const type={beach:"Beach",gravel:"Gravel",road:"Road"}[S.ride];
+  let t=`${type} ride – ${L.n} – ${fmtDay(d.date)}\n`;
+  if(S.ride==="beach"){const lo=lowT.filter(x=>x.type==="low").map(x=>fmtT(x.t)).join(" & ");t+=`Low tide: ${lo||"n/a"}\n`;}
+  if(best){
+    const adv=headingAdvice(best.dir);
+    t+=`Ride window: ${fmtT(best.a)}–${fmtT(best.b)} (${rate(best.score)[1]})\nWind: ${Math.round(best.wind)} km/h ${dirName(best.dir)}, gusts ${Math.round(best.gust)}\nTemp: ${best.temp}°C (feels ${best.app}°C), rain ${best.rain.toFixed(1)} mm\n${adv.text}\nKit: ${clothing(best.app,best.rain,best.wind)}\n`;
+  }else t+="No suitable window – alternative ride advised.\n";
+  const sk=S.surface||DEFAULT_SURFACE[S.ride];
+  if(riders.length){t+="Tyres ("+(SURFACES.find(s=>s[0]===sk)||[])[1]+"):\n"+riders.map(r=>{const p=tyre(r,sk);return `• ${r.name}: F ${psi2bar(p.f).toFixed(2)} / R ${psi2bar(p.b).toFixed(2)} bar`}).join("\n");}
+  return t;
+}
+
+function renderTyres(){
+  const sk=S.surface||DEFAULT_SURFACE[S.ride];
+  $("surface").innerHTML=SURFACES.map(s=>`<option value="${s[0]}" ${s[0]===sk?"selected":""}>${s[1]}</option>`).join("");
+  $("tyreCtx").textContent=`Ride type: ${S.ride} · surface default follows ride type (change below).`;
+  if(!riders.length){$("teamTable").innerHTML='<div class="muted">Add riders on the Riders tab.</div>';return}
+  $("teamTable").innerHTML=`<table><tr><th>Rider</th><th>Tyre</th><th>Front</th><th>Rear</th></tr>${riders.map(r=>{const p=tyre(r,sk);
+    return `<tr><td>${esc(r.name)}<div class="muted">${Math.round(p.sys)} kg sys</div></td><td class="muted">${r.width} mm</td>
+      <td class="num">${psi2bar(p.f).toFixed(2)} bar<div class="muted">${p.f.toFixed(0)} psi</div></td>
+      <td class="num">${psi2bar(p.b).toFixed(2)} bar<div class="muted">${p.b.toFixed(0)} psi</div></td></tr>
+      ${p.warn.length?`<tr><td colspan="4" class="warn">⚠️ ${p.warn.join(" ")}</td></tr>`:""}`}).join("")}</table>`;
+}
+
+function renderRoutes(){
+  const L=loc(); const el=$("routeAdvice");
+  $("lnKomoot").href=`https://www.komoot.com/plan/@${L.lat},${L.lon},13z`;
+  $("lnStrava").href=`https://www.strava.com/maps/create`;
+  $("lnGarmin").href=`https://connect.garmin.com/modern/course/create`;
+  if(!DATA){el.innerHTML=`<h2>Route advice</h2><div class="muted">Wind-based advice appears when live forecast data is available. Default for ${esc(L.n)}: beach runs ${dirName(L.coast)} ↔ ${dirName(L.coast+180)}.</div>`;return}
+  const best=windowsFor(S.dayIdx)[0];
+  if(!best){el.innerHTML='<h2>Route advice</h2><div class="muted">No riding window for the selected day.</div>';return}
+  const adv=headingAdvice(best.dir);
+  el.innerHTML=`<h2>Route advice · ${S.dayIdx===0?"today":fmtDay(DATA.days[S.dayIdx].date)}</h2>
+   <div>Depart <b>${fmtT(best.a)}</b>${S.ride==="beach"?` (low tide ${fmtT(best.low.t)})`:""}, back by <b>${fmtT(best.b)}</b>.</div>
+   <div style="margin-top:6px">🧭 ${adv.text}</div>
+   ${S.ride==="beach"?`<div class="muted" style="margin-top:6px">Turn around at half your available time — the incoming tide narrows the hard sand quickly. Avoid groynes/strandhoofden and beach-access restrictions.</div>`:""}`;
+}
+
+function renderRiders(){
+  const el=$("riderList");
+  el.innerHTML=riders.length?riders.map(r=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:8px 0">
+    <div><b>${esc(r.name)}</b><div class="muted">${r.kg} kg · ${(BIKES.find(b=>b[0]===r.bike)||[])[1]?.split(" ")[0]} · ${r.width} mm ${(WHEELS.find(w=>w[0]===r.wheel)||[])[1]}${r.hookless?" · hookless":""}</div></div>
+    <div class="row" style="gap:6px"><button class="small ghost" data-e="${r.id}">Edit</button><button class="small ghost" data-d="${r.id}">✕</button></div></div>`).join(""):'<div class="muted">No riders yet.</div>';
+  el.querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>editRider(+b.dataset.e));
+  el.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{riders=riders.filter(r=>r.id!==+b.dataset.d);save();render()});
+}
+
+function opts(list,v){return list.map(o=>`<option value="${o[0]}" ${o[0]===v?"selected":""}>${o[1]}</option>`).join("")}
+function editRider(id){
+  const r=riders.find(x=>x.id===id)||{id:Date.now(),name:"",kg:75,bikeKg:9,gearKg:2,bike:"road",width:28,wheel:"700",casing:"hp",speed:"mod",hookless:false,maxPsi:""};
+  $("sheet").innerHTML=`<h2 style="margin-top:0">${riders.includes(r)?"Edit":"New"} rider</h2>
+   <label>Name</label><input id="f_name" value="${esc(r.name)}">
+   <div class="grid3"><div><label>Rider kg</label><input id="f_kg" type="number" value="${r.kg}"></div><div><label>Bike kg</label><input id="f_bikeKg" type="number" value="${r.bikeKg}"></div><div><label>Gear kg</label><input id="f_gearKg" type="number" value="${r.gearKg}"></div></div>
+   <label>Bike / weight distribution</label><select id="f_bike">${opts(BIKES,r.bike)}</select>
+   <div class="grid2"><div><label>Measured tyre width (mm)</label><input id="f_width" type="number" value="${r.width}"></div><div><label>Wheel</label><select id="f_wheel">${opts(WHEELS,r.wheel)}</select></div></div>
+   <label>Tyre / casing</label><select id="f_casing">${opts(CASINGS,r.casing)}</select>
+   <label>Typical speed</label><select id="f_speed">${opts(SPEEDS,r.speed)}</select>
+   <div class="grid2"><div class="chk"><input type="checkbox" id="f_hookless" ${r.hookless?"checked":""}><span>Hookless rim</span></div><div><label>Max psi (tyre/rim)</label><input id="f_maxPsi" type="number" value="${r.maxPsi}"></div></div>
+   <div class="row" style="gap:8px;margin-top:14px"><button id="f_save" style="flex:1">Save</button><button class="ghost" id="f_cancel">Cancel</button></div>`;
+  $("dlg").classList.add("on");
+  $("f_cancel").onclick=()=>$("dlg").classList.remove("on");
+  $("f_save").onclick=()=>{
+    const n={id:r.id};["name","kg","bikeKg","gearKg","bike","width","wheel","casing","speed","maxPsi"].forEach(k=>n[k]=$("f_"+k).value);
+    ["kg","bikeKg","gearKg","width"].forEach(k=>n[k]=+n[k]); n.hookless=$("f_hookless").checked; n.name=n.name.trim()||"Rider";
+    const i=riders.findIndex(x=>x.id===r.id); if(i>=0) riders[i]=n; else riders.push(n);
+    save(); $("dlg").classList.remove("on"); render();
+  };
+}
+
+/* ================= GPX ================= */
+function dest(lat,lon,brg,km){const R=6371,d=km/R,b=brg*Math.PI/180,f1=lat*Math.PI/180,l1=lon*Math.PI/180;
+  const f2=Math.asin(Math.sin(f1)*Math.cos(d)+Math.cos(f1)*Math.sin(d)*Math.cos(b));
+  const l2=l1+Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(f1),Math.cos(d)-Math.sin(f1)*Math.sin(f2));return [f2*180/Math.PI,l2*180/Math.PI]}
+function makeGpx(){
+  const L=loc(); const km=Math.max(5,Math.min(120,+$("gpxKm").value||25));
+  let heading = S.ride==="beach"?L.coast:0;
+  if(DATA){const best=windowsFor(S.dayIdx)[0]; if(best) heading=headingAdvice(best.dir).heading;}
+  const pts=[]; for(let k=0;k<=km;k+=1) pts.push(dest(L.lat,L.lon,heading,k));
+  const all=pts.concat(pts.slice(0,-1).reverse());
+  const gpx=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Ride Prep Agent" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>${L.n} ${S.ride} out&amp;back ${km}km (${dirName(heading)} first)</name><trkseg>\n${all.map(p=>`<trkpt lat="${p[0].toFixed(5)}" lon="${p[1].toFixed(5)}"/>`).join("\n")}\n</trkseg></trk>\n</gpx>`;
+  $("gpxOut").value=gpx; return gpx;
+}
+
+/* ================= WIRING ================= */
+$("loc").innerHTML=["NL","BE"].map(c=>`<optgroup label="${c==="NL"?"Netherlands":"Belgium"}">${LOCATIONS.filter(l=>l.c===c).map(l=>`<option value="${l.id}">${l.n}</option>`).join("")}</optgroup>`).join("");
+$("loc").value=S.loc; $("ride").value=S.ride;
+$("loc").onchange=e=>{S.loc=e.target.value;S.dayIdx=0;save();load()};
+$("ride").onchange=e=>{S.ride=e.target.value;S.surface=null;save();render()};
+$("surface").onchange=e=>{S.surface=e.target.value;save();renderTyres();if(DATA)renderDay()};
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.id===b.dataset.tab));
+  window.scrollTo(0,0);
+});
+$("addRider").onclick=()=>editRider(null);
+$("dlg").onclick=e=>{if(e.target.id==="dlg")$("dlg").classList.remove("on")};
+async function copy(txt,btn){try{await navigator.clipboard.writeText(txt);const o=btn.textContent;btn.textContent="Copied ✓";setTimeout(()=>btn.textContent=o,1500)}catch(e){btn.textContent="Select & copy manually"}}
+$("copyBrief").onclick=e=>copy($("brief").textContent,e.target);
+$("mkGpx").onclick=makeGpx;
+$("copyGpx").onclick=e=>copy($("gpxOut").value||makeGpx(),e.target);
+$("dlGpx").onclick=async()=>{const g=$("gpxOut").value||makeGpx();const fn=`${S.loc}-${S.ride}.gpx`;
+  try{if(window.claude&&window.claude.use){const dl=await window.claude.use("downloads");if(dl){await dl.save({filename:fn,data:g});return}}}catch(e){return}
+  try{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([g],{type:"application/gpx+xml"}));a.download=`${S.loc}-${S.ride}.gpx`;document.body.appendChild(a);a.click();a.remove()}catch(e){}};
+$("expTeam").onclick=()=>{$("teamJson").value=JSON.stringify(riders,null,1)};
+$("impTeam").onclick=()=>{try{const v=JSON.parse($("teamJson").value);if(Array.isArray(v)){riders=v;save();render()}}catch(e){$("teamJson").value="Invalid JSON – paste an exported team list."}};
+
+/* Optional: Claude-written briefing when running as a Claude artifact */
+(async()=>{
+  try{
+    if(!window.claude||!window.claude.use) return;
+    const sample=await window.claude.use("sample"); if(!sample) return;
+    const b=$("aiBrief"); b.style.display="inline-block";
+    b.onclick=async()=>{
+      b.disabled=true; b.textContent="Writing…";
+      try{
+        const r=await sample(`You are the ride captain's assistant for a Dutch cycling club (ANWB Ontmoetingsplek team). Rewrite these ride facts into a short, upbeat WhatsApp message in Dutch for the team (max 8 lines, use a few emojis, keep all times, pressures and safety notes exact, do not invent data):\n\n${$("brief").textContent}`,{modelTier:"quick",onText:({text})=>{$("brief").textContent=text}});
+        $("brief").textContent=r.text; $("waBrief").href="https://wa.me/?text="+encodeURIComponent(r.text);
+      }catch(e){}
+      b.disabled=false; b.textContent="✨ Write with Claude";
+    };
+  }catch(e){}
+})();
+
+render(); load();
+// Offline app shell when self-hosted (silently skipped where service workers aren't allowed)
+try{ if("serviceWorker" in navigator && location.protocol==="https:" && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register("sw.js").catch(()=>{}); }catch(e){}
+</script>
+</body>
+</html>
