@@ -1,5 +1,5 @@
 // Service worker: caches the app shell for offline start. Forecast/tide API calls are never cached (always live).
-const CACHE = "ride-prep-v1";
+const CACHE = "ride-prep-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-180.png"];
 
 self.addEventListener("install", e => {

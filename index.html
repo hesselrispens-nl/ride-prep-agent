@@ -96,10 +96,20 @@ details summary{cursor:pointer;font-weight:600}
 
   <!-- TODAY / FORECAST -->
   <section class="tab on" id="t-plan">
-    <div class="card">
-      <div class="days" id="days"></div>
+    <div class="card" id="planForm">
+      <h2>📝 Plan your ride</h2>
+      <div class="muted">When do you want to ride, what time do you start, and how far?</div>
+      <div class="grid2">
+        <div><label for="pDate">Date</label><input id="pDate" type="date"></div>
+        <div><label for="pTime">Start time</label><input id="pTime" type="time" step="900"></div>
+      </div>
+      <div class="grid2">
+        <div><label for="pKm">Distance (km)</label><input id="pKm" type="number" min="5" max="300" inputmode="numeric"></div>
+        <div><label for="pSpeed">Avg speed (km/h)</label><input id="pSpeed" type="number" min="8" max="45" inputmode="numeric"></div>
+      </div>
+      <button id="pGo" style="width:100%;margin-top:12px">Check conditions</button>
     </div>
-    <div class="card" id="dayCard"><div class="muted">Loading forecast…</div></div>
+    <div class="card" id="planResult" style="display:none"></div>
     <div class="card" id="briefCard" style="display:none">
       <h2>🧭 Agent briefing</h2>
       <div class="briefing" id="brief"></div>
@@ -109,6 +119,11 @@ details summary{cursor:pointer;font-weight:600}
         <button class="small ghost" id="aiBrief" style="display:none">✨ Write with Claude</button>
       </div>
     </div>
+    <div class="card">
+      <h2>📅 Overview – best windows</h2>
+      <div class="days" id="days"></div>
+    </div>
+    <div class="card" id="dayCard"><div class="muted">Loading forecast…</div></div>
   </section>
 
   <!-- TYRES -->
@@ -259,8 +274,8 @@ async function load(){
   const L = loc();
   $("status").innerHTML = "";
   $("dayCard").innerHTML = '<div class="muted">Loading forecast for '+esc(L.n)+'…</div>';
-  const wUrl = `https://api.open-meteo.com/v1/forecast?latitude=${L.lat}&longitude=${L.lon}&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FAmsterdam&forecast_days=7&wind_speed_unit=kmh`;
-  const mUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${L.lat}&longitude=${L.lon-0.03}&hourly=sea_level_height_msl&timezone=Europe%2FAmsterdam&forecast_days=7&cell_selection=sea`;
+  const wUrl = `https://api.open-meteo.com/v1/forecast?latitude=${L.lat}&longitude=${L.lon}&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FAmsterdam&forecast_days=14&wind_speed_unit=kmh`;
+  const mUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${L.lat}&longitude=${L.lon-0.03}&hourly=sea_level_height_msl&timezone=Europe%2FAmsterdam&forecast_days=8&cell_selection=sea`;
   try{
     const ctl = new AbortController(); const to=setTimeout(()=>ctl.abort(),9000);
     const [w,m] = await Promise.all([fetch(wUrl,{signal:ctl.signal}).then(r=>r.json()), fetch(mUrl,{signal:ctl.signal}).then(r=>r.json()).catch(()=>null)]);
@@ -380,7 +395,119 @@ function tyre(r, surfaceKey){
 function banner(html,cls){$("status").innerHTML=`<div class="banner ${cls}">${html}</div>`}
 
 function render(){
-  renderDays(); renderDay(); renderTyres(); renderRoutes(); renderRiders();
+  renderDays(); renderDay(); renderPlan(); renderTyres(); renderRoutes(); renderRiders();
+}
+
+/* ================= RIDE PLAN (date · start · distance) ================= */
+const SPEED_DEF={road:27,gravel:21,beach:19};
+const isoDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function initPlanForm(){
+  const today=new Date(); const max=new Date(today.getTime()+13*864e5);
+  const p=S.plan||{};
+  if(!p.date||p.date<isoDate(today)) p.date=isoDate(today);
+  $("pDate").min=isoDate(today); $("pDate").max=isoDate(max);
+  $("pDate").value=p.date; $("pTime").value=p.time||"10:00";
+  $("pKm").value=p.km||40; $("pSpeed").value=p.speed||SPEED_DEF[S.ride];
+}
+function readPlan(){
+  S.plan={date:$("pDate").value,time:$("pTime").value||"10:00",km:Math.max(1,+$("pKm").value||40),speed:Math.max(5,+$("pSpeed").value||SPEED_DEF[S.ride])};
+  S.planActive=true; save();
+}
+function fmtDur(h){const m=Math.round(h*60);return `${Math.floor(m/60)}h${String(m%60).padStart(2,"0")}`}
+
+function analyzePlan(){
+  const p=S.plan; if(!p||!p.date) return {err:"Enter a date, start time and distance."};
+  if(!DATA) return {err:"Live forecast isn't available in this view."};
+  const start=new Date(`${p.date}T${p.time}`); const dur=p.km/p.speed; const end=new Date(start.getTime()+dur*3600e3);
+  const day=DATA.days.find(d=>d.key===p.date);
+  if(!day) return {err:`The forecast reaches ${fmtDay(DATA.days[DATA.days.length-1].date)}. Pick an earlier date.`};
+  if(end<new Date()) return {err:"That start time has already passed."};
+  const hrs=DATA.hours.filter(h=>h.t.getTime()+3600e3>start.getTime() && h.t<end);
+  if(!hrs.length) return {err:"No forecast hours for that period."};
+  const r={p,start,end,dur,day,hrs};
+  r.tmin=Math.round(Math.min(...hrs.map(h=>h.temp))); r.tmax=Math.round(Math.max(...hrs.map(h=>h.temp)));
+  r.app=Math.round(Math.min(...hrs.map(h=>h.app)));
+  r.wind=Math.round(hrs.reduce((s,h)=>s+h.wind,0)/hrs.length); r.windMax=Math.round(Math.max(...hrs.map(h=>h.wind)));
+  r.gust=Math.round(Math.max(...hrs.map(h=>h.gust))); r.dir=circMean(hrs.map(h=>h.dir));
+  r.rain=hrs.reduce((s,h)=>s+h.rain,0); r.pp=Math.max(...hrs.map(h=>h.pp??0));
+  r.score=Math.round(hrs.reduce((s,h)=>s+hourScore(h),0)/hrs.length);
+  r.dark = start<day.sunrise || end>day.sunset;
+  // tides around the ride (±6 h)
+  const lastTide=DATA.tides.length?DATA.tides[DATA.tides.length-1].t:null;
+  r.tideAvail = !!lastTide && lastTide.getTime() >= start.getTime();
+  r.tides=DATA.tides.filter(t=>t.t.getTime()>=start.getTime()-6*3600e3 && t.t.getTime()<=end.getTime()+6*3600e3);
+  if(r.tideAvail){
+    // safe beach window = low tide ±2 h; how much of the ride falls inside it?
+    let best=null;
+    DATA.tides.filter(t=>t.type==="low").forEach(L=>{
+      const a=L.t.getTime()-2*3600e3,b=L.t.getTime()+2*3600e3;
+      const ov=Math.max(0,Math.min(end.getTime(),b)-Math.max(start.getTime(),a));
+      const dist=Math.abs(L.t.getTime()-(start.getTime()+end.getTime())/2);
+      if(!best||ov>best.ov||(ov===best.ov&&dist<best.dist)) best={L,ov,dist,a:new Date(a),b:new Date(b)};
+    });
+    r.low=best; r.fit=best?best.ov/(dur*3600e3):0;
+    if(best){ // suggested start: ride centred on low tide, within daylight
+      let s=best.L.t.getTime()-Math.min(dur,4)*3600e3/2;
+      s=Math.max(s,day.sunrise.getTime()+15*60e3);
+      r.suggest=new Date(Math.round(s/(15*60e3))*15*60e3);
+    }
+  }
+  return r;
+}
+
+function renderPlan(){
+  const el=$("planResult");
+  if(!S.planActive){el.style.display="none";return}
+  el.style.display="block";
+  const r=analyzePlan(), L=loc(), type={beach:"Beach",gravel:"Gravel",road:"Road"}[S.ride];
+  if(r.err){el.innerHTML=`<h2>Your ride</h2><div class="muted">${esc(r.err)}</div>`;return}
+  const [cls,lab]=rate(r.score); const adv=headingAdvice(r.dir);
+  let h=`<div class="row" style="justify-content:space-between"><h2 style="margin:0">${type} ride · ${fmtDay(r.start)}</h2><span class="pill ${cls}">${lab} ${r.score}</span></div>
+   <div class="muted">${esc(L.n)} · ${fmtT(r.start)}–${fmtT(r.end)} · ${r.p.km} km at ${r.p.speed} km/h (${fmtDur(r.dur)})</div>
+   <h3 style="font-size:14px;margin:12px 0 6px">🌦️ Expected weather</h3>
+   <div class="grid3">
+     <div class="kpi"><b>${r.tmin===r.tmax?r.tmin:r.tmin+"–"+r.tmax}°</b><span>feels ${r.app}°</span></div>
+     <div class="kpi"><b>${r.wind}<small style="font-size:12px"> km/h</small></b><span><span class="arrow" style="transform:rotate(${r.dir+180}deg)">↑</span> ${dirName(r.dir)} · gust ${r.gust}</span></div>
+     <div class="kpi"><b>${r.rain.toFixed(1)}<small style="font-size:12px"> mm</small></b><span>rain chance ${r.pp}%</span></div>
+   </div>
+   <div class="hours" style="margin-top:8px">${r.hrs.map(x=>`<div class="hr win">${x.t.getHours()}h<br>${WMO(x.code)}<br>${Math.round(x.temp)}°<br>${Math.round(x.wind)}<br><span class="arrow" style="transform:rotate(${x.dir+180}deg)">↑</span></div>`).join("")}</div>
+   <div class="muted">Per hour: weather · °C · wind km/h · arrow = where the wind blows to.</div>
+   <div style="margin-top:8px">🧭 ${adv.text}</div>
+   <div class="muted" style="margin-top:4px">👕 ${clothing(r.app,r.rain,r.windMax)}</div>
+   ${r.dark?`<div class="warn">🔦 Part of the ride is outside daylight (🌅 ${fmtT(r.day.sunrise)} – ${fmtT(r.day.sunset)}). Bring front and rear lights.</div>`:""}
+   ${r.gust>=60?`<div class="warn">💨 Gusts up to ${r.gust} km/h – consider a sheltered route or another day.</div>`:""}
+   <h3 style="font-size:14px;margin:14px 0 6px">🌊 Expected tides</h3>`;
+  if(!r.tideAvail){
+    h+=`<div class="muted">The tide forecast doesn't reach this date yet (about 7 days ahead). Check <a href="https://primastrandje.cc" target="_blank" rel="noopener">primastrandje.cc</a>.</div>`;
+  }else{
+    h+=`<div class="tide">${r.tides.map(t=>{const inRide=t.t>=r.start&&t.t<=r.end;return `${t.type==="low"?"⬇️ Low":"⬆️ High"} ${fmtT(t.t)}${t.t.toDateString()!==r.start.toDateString()?" ("+fmtDay(t.t)+")":""} <span class="muted">(${t.h.toFixed(2)} m)</span>${inRide?" <b>· during ride</b>":""}`}).join("<br>")||'<span class="muted">No tide turning point near your ride.</span>'}</div>`;
+    if(r.low){
+      const f=r.fit, st=f>=0.9?["good","Your ride fits the low-tide window"]:f>=0.5?["ok","Your ride only partly fits the low-tide window"]:["bad","Your ride is outside the low-tide window"];
+      h+=`<div style="margin-top:8px"><span class="pill ${st[0]}">${Math.round(f*100)}%</span> ${S.ride==="beach"?st[1]:"Low-tide fit (for any beach sections)"} <span class="muted">(low tide ${fmtT(r.low.L.t)}, hard sand ≈ ${fmtT(r.low.a)}–${fmtT(r.low.b)})</span></div>`;
+      if(S.ride==="beach"&&f<0.9&&r.suggest) h+=`<div style="margin-top:6px">💡 Suggested start: <b>${fmtT(r.suggest)}</b> <button class="small ghost" id="useSuggest" style="margin-left:6px">Use</button></div>`;
+      if(S.ride==="beach"&&r.dur>4) h+=`<div class="warn">⏱️ ${fmtDur(r.dur)} is longer than the ~4-hour low-tide window. Shorten the beach part or add dune/road sections.</div>`;
+    }
+  }
+  h+=`<div class="muted" style="margin-top:10px">Data: Open-Meteo weather &amp; marine model. Tide times ±15–30 min – confirm on <a href="https://primastrandje.cc" target="_blank" rel="noopener">primastrandje.cc</a>.</div>`;
+  el.innerHTML=h;
+  const u=$("useSuggest"); if(u) u.onclick=()=>{$("pTime").value=fmtT(r.suggest);readPlan();render()};
+  // briefing from the plan
+  $("briefCard").style.display="block";
+  $("brief").textContent=buildPlanBrief(r);
+  $("waBrief").href="https://wa.me/?text="+encodeURIComponent($("brief").textContent);
+}
+
+function buildPlanBrief(r){
+  const L=loc(), type={beach:"Beach",gravel:"Gravel",road:"Road"}[S.ride];
+  let t=`${type} ride – ${L.n}\n${fmtDay(r.start)} ${fmtT(r.start)}–${fmtT(r.end)} · ${r.p.km} km\n`;
+  t+=`Weather: ${r.tmin===r.tmax?r.tmin:r.tmin+"–"+r.tmax}°C (feels ${r.app}°C), wind ${r.wind} km/h ${dirName(r.dir)}, gusts ${r.gust}, rain ${r.rain.toFixed(1)} mm (${r.pp}%)\n`;
+  if(r.tideAvail&&r.tides.length) t+=`Tides: ${r.tides.map(x=>(x.type==="low"?"low ":"high ")+fmtT(x.t)).join(", ")}\n`;
+  if(S.ride==="beach"&&r.low) t+=`Low-tide fit: ${Math.round(r.fit*100)}%${r.fit<0.9&&r.suggest?` – better start ${fmtT(r.suggest)}`:""}\n`;
+  t+=`${headingAdvice(r.dir).text}\nKit: ${clothing(r.app,r.rain,r.windMax)}\n`;
+  if(r.dark) t+="Lights required.\n";
+  const sk=S.surface||DEFAULT_SURFACE[S.ride];
+  if(riders.length) t+="Tyres ("+(SURFACES.find(s=>s[0]===sk)||[])[1]+"):\n"+riders.map(x=>{const p=tyre(x,sk);return `• ${x.name}: F ${psi2bar(p.f).toFixed(2)} / R ${psi2bar(p.b).toFixed(2)} bar`}).join("\n");
+  return t;
 }
 
 function renderDays(){
@@ -420,7 +547,7 @@ function renderDay(){
   }
   html+=`<div class="muted" style="margin-top:10px">Data: Open-Meteo weather &amp; marine model. Tide times are model-derived (±15–30 min) — confirm on <a href="https://primastrandje.cc" target="_blank" rel="noopener">primastrandje.cc</a>.</div>`;
   card.innerHTML=html;
-  // briefing
+  if(S.planActive) return; // briefing follows the rider's own plan
   $("briefCard").style.display="block";
   $("brief").textContent=buildBrief(d,best,lowT);
   $("waBrief").href="https://wa.me/?text="+encodeURIComponent($("brief").textContent);
@@ -456,6 +583,15 @@ function renderRoutes(){
   $("lnKomoot").href=`https://www.komoot.com/plan/@${L.lat},${L.lon},13z`;
   $("lnStrava").href=`https://www.strava.com/maps/create`;
   $("lnGarmin").href=`https://connect.garmin.com/modern/course/create`;
+  if(S.planActive&&S.plan) $("gpxKm").value=Math.max(5,Math.round(S.plan.km/2));
+  const pr=S.planActive?analyzePlan():null;
+  if(pr&&!pr.err){
+    el.innerHTML=`<h2>Route advice · ${fmtDay(pr.start)}</h2>
+     <div>Depart <b>${fmtT(pr.start)}</b>, back by <b>${fmtT(pr.end)}</b> · ${pr.p.km} km (${Math.round(pr.p.km/2)} km out and back).</div>
+     <div style="margin-top:6px">🧭 ${headingAdvice(pr.dir).text}</div>
+     <div class="muted" style="margin-top:6px">Turn around at ${fmtT(new Date(pr.start.getTime()+pr.dur*1800e3))}${S.ride==="beach"&&pr.low?` – low tide is ${fmtT(pr.low.L.t)}, hard sand until ≈ ${fmtT(pr.low.b)}`:""}.</div>`;
+    return;
+  }
   if(!DATA){el.innerHTML=`<h2>Route advice</h2><div class="muted">Wind-based advice appears when live forecast data is available. Default for ${esc(L.n)}: beach runs ${dirName(L.coast)} ↔ ${dirName(L.coast+180)}.</div>`;return}
   const best=windowsFor(S.dayIdx)[0];
   if(!best){el.innerHTML='<h2>Route advice</h2><div class="muted">No riding window for the selected day.</div>';return}
@@ -504,7 +640,9 @@ function dest(lat,lon,brg,km){const R=6371,d=km/R,b=brg*Math.PI/180,f1=lat*Math.
 function makeGpx(){
   const L=loc(); const km=Math.max(5,Math.min(120,+$("gpxKm").value||25));
   let heading = S.ride==="beach"?L.coast:0;
-  if(DATA){const best=windowsFor(S.dayIdx)[0]; if(best) heading=headingAdvice(best.dir).heading;}
+  if(DATA){const pr=S.planActive?analyzePlan():null;
+    if(pr&&!pr.err) heading=headingAdvice(pr.dir).heading;
+    else {const best=windowsFor(S.dayIdx)[0]; if(best) heading=headingAdvice(best.dir).heading;}}
   const pts=[]; for(let k=0;k<=km;k+=1) pts.push(dest(L.lat,L.lon,heading,k));
   const all=pts.concat(pts.slice(0,-1).reverse());
   const gpx=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Ride Prep Agent" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>${L.n} ${S.ride} out&amp;back ${km}km (${dirName(heading)} first)</name><trkseg>\n${all.map(p=>`<trkpt lat="${p[0].toFixed(5)}" lon="${p[1].toFixed(5)}"/>`).join("\n")}\n</trkseg></trk>\n</gpx>`;
@@ -515,7 +653,9 @@ function makeGpx(){
 $("loc").innerHTML=["NL","BE"].map(c=>`<optgroup label="${c==="NL"?"Netherlands":"Belgium"}">${LOCATIONS.filter(l=>l.c===c).map(l=>`<option value="${l.id}">${l.n}</option>`).join("")}</optgroup>`).join("");
 $("loc").value=S.loc; $("ride").value=S.ride;
 $("loc").onchange=e=>{S.loc=e.target.value;S.dayIdx=0;save();load()};
-$("ride").onchange=e=>{S.ride=e.target.value;S.surface=null;save();render()};
+$("ride").onchange=e=>{S.ride=e.target.value;S.surface=null;$("pSpeed").value=SPEED_DEF[S.ride];if(S.planActive)readPlan();save();render()};
+initPlanForm();
+$("pGo").onclick=()=>{readPlan();render();$("planResult").scrollIntoView({behavior:"smooth",block:"start"})};
 $("surface").onchange=e=>{S.surface=e.target.value;save();renderTyres();if(DATA)renderDay()};
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));

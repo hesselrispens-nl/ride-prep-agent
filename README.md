@@ -3,7 +3,8 @@
 Mobile web app (PWA) to prepare team rides: road, gravel and beach.
 
 ## Features
-- 7-day weather forecast and low/high tide times for 18 NL/BE beach locations (coverage follows primastrandje.cc)
+- **Plan your ride first:** enter date, start time and distance (+ average speed) → expected weather for exactly that period (hourly), tides around the ride, low-tide fit for beach rides with a suggested start time, daylight/lights and gust warnings
+- 14-day weather overview (tides 8 days ahead) and low/high tide times for 18 NL/BE beach locations (coverage follows primastrandje.cc)
 - Ride-window advice: beach = low tide ±2 h in daylight; road/gravel = best 3 h daylight block
 - Wind strategy (start into the wind), kit advice, shareable team briefing (WhatsApp)
 - Per-rider tyre pressure (SILCA-style inputs, approximation; beach surfaces are an extension)
